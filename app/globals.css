@@ -1,11 +1,30 @@
 * { box-sizing: border-box; }
-
 html, body { margin: 0; min-height: 100%; }
-
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  background: #f7f8fa;
-  color: #111827;
-}
-
+body { font-family: Arial, Helvetica, sans-serif; background: #0b1020; color: #f4f7fb; }
 a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+button { cursor: pointer; border: 0; border-radius: 10px; padding: 11px 16px; background: #fff; color: #0b1020; font-weight: 700; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+input { width: 100%; border: 1px solid #26304a; background: #10182d; color: #fff; border-radius: 10px; padding: 12px 13px; outline: none; }
+input:focus { border-color: #7184ff; }
+.shell { max-width: 1180px; margin: 0 auto; padding: 56px 24px; }
+.auth { max-width: 520px; margin: 8vh auto; }
+.card { background: #11182a; border: 1px solid #222c45; border-radius: 18px; padding: 28px; box-shadow: 0 18px 50px rgba(0,0,0,.22); }
+.eyebrow { margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: .18em; color: #8ea0ff; }
+h1 { margin: 0 0 12px; font-size: clamp(32px, 5vw, 52px); line-height: 1.05; }
+h2 { margin: 0 0 22px; font-size: 25px; }
+.muted { color: #9aa6bd; line-height: 1.6; }
+.auth form { display: grid; gap: 12px; margin-top: 24px; }
+.actions, .user, .row { display: flex; gap: 10px; align-items: center; }
+.secondary { background: transparent; color: #d9e0ef; border: 1px solid #303b56; }
+.notice { color: #cbd5e1; margin-top: 16px; }
+.topbar { display: flex; justify-content: space-between; gap: 24px; align-items: end; margin-bottom: 28px; }
+.user span { color: #9aa6bd; font-size: 14px; }
+.grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+.row { margin-bottom: 22px; }
+.projects { display: grid; gap: 10px; }
+.project { display: flex; justify-content: space-between; padding: 15px; border: 1px solid #26304a; border-radius: 12px; background: #0d1425; }
+.project span { color: #7f8ba3; font-size: 13px; }
+.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.steps span { padding: 12px; border-radius: 10px; background: #0d1425; border: 1px solid #26304a; color: #d7deeb; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .topbar { align-items: start; flex-direction: column; } .user { flex-wrap: wrap; } }
