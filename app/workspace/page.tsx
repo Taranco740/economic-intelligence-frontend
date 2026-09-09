@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { createProject, getDatasets, getProjects, uploadDataset, type Dataset, type Project } from "../../lib/api";
 import { createSupabaseBrowserClient } from "../../lib/supabase-browser";
 
+function friendlyError(error: unknown, fallback: string) {
+  const text = error instanceof Error ? error.message : "";
+  if (/supabase|api key|project.*url|environment variables|client/i.test(text)) {
+    return "We couldn't connect to Gamuur right now. Please try again.";
+  }
+  return text || fallback;
+}
+
 export default function WorkspacePage() {
   const [project, setProject] = useState<Project | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -24,7 +32,7 @@ export default function WorkspacePage() {
       setProject(selected);
       setDatasets(selected ? await getDatasets(session.access_token, selected.id) : []);
       setMessage(selected ? "Workspace ready." : "Create your first project to begin.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load workspace."); }
+    } catch (error) { setMessage(friendlyError(error, "Could not load workspace.")); }
   }
 
   useEffect(() => { load(); }, []);
@@ -38,7 +46,7 @@ export default function WorkspacePage() {
       if (!session) throw new Error("Sign in first.");
       const created = await createProject(session.access_token, name.trim());
       setProject(created); setProjects([created, ...projects]); setName(""); setDatasets([]); setMessage("Project created.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Project creation failed."); }
+    } catch (error) { setMessage(friendlyError(error, "Project creation failed.")); }
     finally { setBusy(false); }
   }
 
@@ -52,7 +60,7 @@ export default function WorkspacePage() {
       const datasetName = file.name.replace(/\.(csv|xlsx)$/i, "").slice(0, 200) || "Dataset";
       const created = await uploadDataset(session.access_token, project.id, datasetName, file);
       setDatasets([created, ...datasets]); setFile(null); setMessage(`Dataset uploaded successfully — version ${created.current_version}.`);
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Upload failed."); }
+    } catch (error) { setMessage(friendlyError(error, "Upload failed.")); }
     finally { setBusy(false); }
   }
 
