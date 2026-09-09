@@ -1,12 +1,13 @@
 import { createBrowserClient } from "@supabase/ssr";
 
+// These are Supabase publishable client values. They are safe to expose in the
+// browser; privileged service-role credentials must remain backend-only.
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://lqniaulkqzwfhlgbkbwc.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  "sb_publishable_uAH0JP6NTHrk7mJFzbSfdQ__0EmaF32";
+
 export function createSupabaseBrowserClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error("Supabase public environment variables are not configured");
-  }
-
-  return createBrowserClient(url, key);
+  return createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 }
