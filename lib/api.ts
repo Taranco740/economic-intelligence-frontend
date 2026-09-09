@@ -1,21 +1,32 @@
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api").replace(/\/$/, "");
 
-export type BackendHealth = {
-  status: string;
-  service: string;
-};
+export type BackendHealth = { status: string; service: string };
+export type Project = { id: string; name: string; description: string | null; status: string };
+export type Dataset = { id: string; project_id: string; name: string; source_type: string; description: string | null; current_version: number; created_at: string; updated_at: string };
 
-export async function getBackendHealth(): Promise<BackendHealth> {
-  const response = await fetch(`${API_BASE_URL}/health`, {
-    method: "GET",
-    cache: "no-store",
-  });
+type RequestOptions = RequestInit & { token?: string };
 
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  headers.set("Accept", "application/json");
+  if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
+  if (options.token) headers.set("Authorization", `Bearer ${options.token}`);
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers, cache: "no-store" });
   if (!response.ok) {
-    throw new Error(`Backend health check failed (${response.status})`);
+    let detail = `Request failed (${response.status})`;
+    try { const body = await response.json(); detail = body.detail?.message ?? body.detail ?? detail; } catch {}
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
-
-  return response.json() as Promise<BackendHealth>;
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
 }
 
+export async function getBackendHealth(): Promise<BackendHealth> { return request<BackendHealth>("/health"); }
+export async function getProjects(token: string): Promise<Project[]> { return request<Project[]>("/projects", { token }); }
+export async function createProject(token: string, name: string): Promise<Project> { return request<Project>("/projects", { method: "POST", token, body: JSON.stringify({ name, description: null, settings: {} }) }); }
+export async function getDatasets(token: string, projectId: string): Promise<Dataset[]> { return request<Dataset[]>(`/projects/${projectId}/datasets`, { token }); }
+export async function uploadDataset(token: string, projectId: string, name: string, file: File): Promise<Dataset> {
+  const form = new FormData(); form.append("name", name); form.append("file", file);
+  return request<Dataset>(`/projects/${projectId}/datasets`, { method: "POST", token, body: form });
+}
 export { API_BASE_URL };
