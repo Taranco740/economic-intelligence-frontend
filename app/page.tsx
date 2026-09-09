@@ -5,6 +5,22 @@ import { getBackendHealth } from "../lib/api";
 
 type ConnectionState = "checking" | "connected" | "disconnected";
 
+type Module = {
+  name: string;
+  description: string;
+  status: string;
+  icon: string;
+};
+
+const modules: Module[] = [
+  { name: "Datasets", description: "Upload, version and profile your economic data.", status: "Ready", icon: "▦" },
+  { name: "Cleaning", description: "Find quality issues before analysis.", status: "Next", icon: "✦" },
+  { name: "Analysis", description: "Explore trends, relationships and statistics.", status: "Next", icon: "◒" },
+  { name: "Forecasting", description: "Build forecasts from validated data.", status: "Planned", icon: "↗" },
+  { name: "AI Insights", description: "Ask questions and get explainable intelligence.", status: "Planned", icon: "✧" },
+  { name: "Reports", description: "Turn approved findings into reports.", status: "Planned", icon: "▤" },
+];
+
 export default function Home() {
   const [connection, setConnection] = useState<ConnectionState>("checking");
   const [service, setService] = useState("Backend");
@@ -19,40 +35,55 @@ export default function Home() {
   }, []);
 
   const connectionLabel = {
-    checking: "Checking backend…",
-    connected: "Backend connected",
+    checking: "Checking system",
+    connected: "All systems operational",
     disconnected: "Backend unavailable",
   }[connection];
 
   return (
-    <main style={{ maxWidth: 1100, margin: "0 auto", padding: "64px 24px" }}>
-      <p style={{ marginBottom: 8, fontSize: 14 }}>Gamuur · Economic Intelligence</p>
-      <h1 style={{ margin: "0 0 16px", fontSize: 42 }}>Turn raw data into decisions.</h1>
-      <p style={{ maxWidth: 720, lineHeight: 1.6 }}>
-        A connected workspace for data ingestion, quality checks, analysis, forecasting, AI insights, and reports.
-      </p>
+    <main className="shell">
+      <nav className="nav">
+        <div className="brand"><span className="brandMark">G</span><span>Gamuur</span></div>
+        <div className="navLinks"><a href="#workspace">Workspace</a><a href="#modules">Modules</a><a href="#status">System status</a></div>
+        <div className="statusPill"><span className={connection === "connected" ? "dot live" : "dot"} />{connectionLabel}</div>
+      </nav>
 
-      <div
-        style={{
-          marginTop: 28,
-          padding: "14px 18px",
-          border: "1px solid #ddd",
-          borderRadius: 12,
-          display: "inline-flex",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
-        <span aria-hidden="true">{connection === "connected" ? "●" : "○"}</span>
-        <span>{connectionLabel}</span>
-        {connection === "connected" && <small>· {service}</small>}
-      </div>
-
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 40 }}>
-        <article><strong>Data</strong><p>Upload, profile, validate, and clean datasets.</p></article>
-        <article><strong>Intelligence</strong><p>Analyze and forecast with traceable AI assistance.</p></article>
-        <article><strong>Reports</strong><p>Turn approved results into professional outputs.</p></article>
+      <section className="hero">
+        <div className="eyebrow">ECONOMIC INTELLIGENCE WORKSPACE</div>
+        <h1>From raw data<br /><span>to decisions.</span></h1>
+        <p>One workspace for ingestion, data quality, analysis, forecasting, AI insights, and reporting.</p>
+        <div className="heroActions"><a className="primary" href="#modules">Open workspace <span>→</span></a><a className="secondary" href="#status">View system status</a></div>
       </section>
+
+      <section id="status" className="overview">
+        <div><span className="metric">01</span><strong>Connected platform</strong><p>Frontend and FastAPI backend are connected through the production API.</p></div>
+        <div><span className="metric">02</span><strong>{connection === "connected" ? "Backend online" : "Backend check"}</strong><p>{connection === "connected" ? service : "Checking the production service connection."}</p></div>
+        <div><span className="metric">03</span><strong>Built to scale</strong><p>Start with datasets and grow into intelligence and reporting.</p></div>
+      </section>
+
+      <section id="modules" className="workspace">
+        <div className="sectionHead"><div><div className="eyebrow">WORKSPACE</div><h2>Choose a module</h2></div><span className="sectionNote">6 core capabilities</span></div>
+        <div className="grid">
+          {modules.map((module, index) => (
+            <article className={index === 0 ? "module active" : "module"} key={module.name}>
+              <div className="moduleTop"><span className="icon">{module.icon}</span><span className="tag">{module.status}</span></div>
+              <h3>{module.name}</h3><p>{module.description}</p>
+              <button type="button" className="moduleLink">{index === 0 ? "Start with datasets" : "Coming next"} <span>→</span></button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="workspace" className="nextStep">
+        <div><div className="eyebrow">NEXT BUILD</div><h2>Dataset workspace</h2><p>The next screen will connect directly to the ingestion and versioning backend so you can upload CSV/XLSX files, validate them, and inspect their profiles.</p></div>
+        <div className="buildCard"><span>BUILD 01</span><strong>Dataset ingestion</strong><small>CSV · XLSX · validation · profiling · versions</small></div>
+      </section>
+
+      <footer><div className="brand"><span className="brandMark">G</span><span>Gamuur</span></div><span>Economic Intelligence Platform</span></footer>
+
+      <style jsx>{`
+        :global(*){box-sizing:border-box}:global(html){scroll-behavior:smooth}:global(body){margin:0;background:#f6f7f3;color:#17201b;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.shell{max-width:1240px;margin:auto;padding:0 28px}.nav{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #dfe3dc}.brand{display:flex;align-items:center;gap:10px;font-weight:750;font-size:18px;letter-spacing:-.03em}.brandMark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#17201b;color:#f6f7f3;font-size:16px}.navLinks{display:flex;gap:28px}.navLinks a{color:#667069;text-decoration:none;font-size:13px}.statusPill{font-size:12px;border:1px solid #dfe3dc;border-radius:999px;padding:8px 12px;background:#fbfcfa;display:flex;align-items:center;gap:7px}.dot{width:7px;height:7px;border-radius:50%;background:#9aa39d}.dot.live{background:#2d8a57}.hero{padding:104px 0 86px;max-width:850px}.eyebrow{font-size:11px;letter-spacing:.16em;font-weight:800;color:#778078;margin-bottom:18px}.hero h1{font-size:clamp(58px,8vw,104px);line-height:.9;letter-spacing:-.075em;margin:0;font-weight:760}.hero h1 span{color:#758078}.hero p{font-size:19px;line-height:1.65;color:#667069;max-width:660px;margin:30px 0}.heroActions{display:flex;gap:12px;align-items:center}.primary,.secondary{padding:13px 18px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:700}.primary{background:#17201b;color:white}.secondary{border:1px solid #d6dbd5;color:#344039}.primary span,.moduleLink span{margin-left:14px}.overview{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #dfe3dc;border-bottom:1px solid #dfe3dc}.overview>div{padding:28px 28px 30px;border-right:1px solid #dfe3dc}.overview>div:last-child{border-right:0}.metric{display:block;font-size:11px;color:#8a938c;margin-bottom:28px}.overview strong{font-size:14px}.overview p{font-size:12px;line-height:1.65;color:#778078;margin:8px 0 0}.workspace{padding:88px 0}.sectionHead{display:flex;justify-content:space-between;align-items:end;margin-bottom:26px}.sectionHead h2,.nextStep h2{font-size:38px;letter-spacing:-.05em;margin:0}.sectionNote{font-size:12px;color:#7c857e}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.module{background:#fbfcfa;border:1px solid #dfe3dc;border-radius:16px;padding:23px;min-height:220px;display:flex;flex-direction:column;transition:transform .2s}.module:hover{transform:translateY(-2px)}.module.active{border-color:#aeb7af;box-shadow:0 12px 30px #17201b0b}.moduleTop{display:flex;justify-content:space-between}.icon{font-size:22px}.tag{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#818a83;padding:5px 8px;border:1px solid #e0e4df;border-radius:999px}.module h3{font-size:19px;letter-spacing:-.03em;margin:28px 0 7px}.module p{font-size:12px;color:#707971;line-height:1.6;margin:0;max-width:270px}.moduleLink{margin-top:auto;padding:0;background:none;border:0;text-align:left;font-size:11px;font-weight:750;color:#26322a;cursor:pointer}.nextStep{display:grid;grid-template-columns:1.4fr .8fr;gap:30px;padding:35px 0 90px;border-top:1px solid #dfe3dc}.nextStep p{color:#6e776f;line-height:1.65;font-size:13px;max-width:650px}.buildCard{border:1px solid #dfe3dc;background:#eef1eb;border-radius:15px;padding:22px;display:flex;flex-direction:column;justify-content:center}.buildCard span{font-size:10px;letter-spacing:.12em;color:#788179}.buildCard strong{font-size:17px;margin:12px 0 6px}.buildCard small{font-size:11px;color:#707971;line-height:1.5}footer{border-top:1px solid #dfe3dc;padding:25px 0 40px;display:flex;justify-content:space-between;align-items:center;color:#89918a;font-size:11px}@media(max-width:800px){.navLinks{display:none}.hero{padding:70px 0}.overview,.grid,.nextStep{grid-template-columns:1fr}.overview>div{border-right:0;border-bottom:1px solid #dfe3dc}.overview>div:last-child{border-bottom:0}.hero h1{font-size:60px}.sectionHead{align-items:start;gap:15px;flex-direction:column}footer{gap:15px;align-items:start;flex-direction:column}}
+      `}</style>
     </main>
   );
 }
