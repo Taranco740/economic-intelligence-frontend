@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { LanguageProvider } from "./components/language-provider";
 
 export const metadata: Metadata = {
-  title: "Economic Intelligence",
-  description: "Data analysis, forecasting, AI insights, and reporting.",
+  title: "Gamuur — Economic Intelligence",
+  description: "Learn, ask questions, analyze data, forecast, visualize, and create reports with Gamuur.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  );
+  return <html lang="en" suppressHydrationWarning><body><LanguageProvider>{children}</LanguageProvider></body></html>;
 }
