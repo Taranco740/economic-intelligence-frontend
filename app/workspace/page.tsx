@@ -24,6 +24,10 @@ export default function WorkspacePage() {
   async function load() {
     try {
       const supabase = createSupabaseBrowserClient();
+      if (!supabase) {
+        setMessage("Gamuur is not configured yet. Please try again shortly.");
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { setMessage("Sign in to use the dataset workspace."); return; }
       const items = await getProjects(session.access_token);
@@ -35,13 +39,14 @@ export default function WorkspacePage() {
     } catch (error) { setMessage(friendlyError(error, "Could not load workspace.")); }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   async function makeProject() {
     if (!name.trim()) return;
     setBusy(true); setMessage("Creating project…");
     try {
       const supabase = createSupabaseBrowserClient();
+      if (!supabase) throw new Error("Supabase environment variables are missing.");
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sign in first.");
       const created = await createProject(session.access_token, name.trim());
@@ -55,6 +60,7 @@ export default function WorkspacePage() {
     setBusy(true); setMessage("Validating and uploading dataset…");
     try {
       const supabase = createSupabaseBrowserClient();
+      if (!supabase) throw new Error("Supabase environment variables are missing.");
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sign in first.");
       const datasetName = file.name.replace(/\.(csv|xlsx)$/i, "").slice(0, 200) || "Dataset";
