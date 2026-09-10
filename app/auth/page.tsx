@@ -36,6 +36,27 @@ export default function AuthPage() {
     }
   }
 
+  async function signInWithGoogle() {
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const sb = createSupabaseBrowserClient();
+      if (!sb) throw new Error(t.error);
+
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo },
+      });
+
+      if (error) throw error;
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : t.error);
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="auth">
       <nav>
@@ -60,11 +81,17 @@ export default function AuthPage() {
         <h1>{t.signIn}</h1>
         <p>
           {language === "so"
-            ? "Soo gal si aad u tijaabiso Gamuur."
+            ? "Soo gal ama akoon cusub ku samee Google."
             : language === "ar"
-              ? "سجّل الدخول لاختبار Gamuur."
-              : "Sign in to test Gamuur."}
+              ? "سجّل الدخول أو أنشئ حسابًا جديدًا باستخدام Google."
+              : "Sign in or create your Gamuur account with Google."}
         </p>
+
+        <button className="submit" type="button" onClick={signInWithGoogle} disabled={busy}>
+          {busy ? "…" : "Continue with Google"}
+        </button>
+
+        <div className="divider">or</div>
 
         <form onSubmit={submit}>
           <label>
