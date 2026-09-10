@@ -10,10 +10,17 @@ import { useLanguage } from "../components/language-provider";
 export default function AuthPage() {
   const { t, language, setLanguage } = useLanguage();
   const router = useRouter();
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+
+  function switchMode(nextMode: "login" | "signup") {
+    setMode(nextMode);
+    setMessage("");
+    setPassword("");
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -23,6 +30,32 @@ export default function AuthPage() {
     try {
       const sb = createSupabaseBrowserClient();
       if (!sb) throw new Error(t.error);
+
+      if (mode === "signup") {
+        const { data, error } = await sb.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+          router.replace("/");
+          router.refresh();
+        } else {
+          setMessage(
+            language === "so"
+              ? "Akoonka waa la sameeyay. Hubi email-kaaga si aad u xaqiijiso."
+              : language === "ar"
+                ? "تم إنشاء حسابك. تحقق من بريدك الإلكتروني لتأكيد الحساب."
+                : "Account created. Check your email to confirm your account."
+          );
+        }
+        return;
+      }
 
       const result = await sb.auth.signInWithPassword({ email, password });
       if (result.error) throw result.error;
@@ -57,6 +90,10 @@ export default function AuthPage() {
     }
   }
 
+  const title = mode === "signup"
+    ? language === "so" ? "Samee akoon" : language === "ar" ? "إنشاء حساب" : "Create your account"
+    : t.signIn;
+
   return (
     <main className="auth">
       <nav>
@@ -78,13 +115,19 @@ export default function AuthPage() {
 
       <section className="box">
         <div className="eyebrow">GAMUUR ACCOUNT</div>
-        <h1>{t.signIn}</h1>
+        <h1>{title}</h1>
         <p>
-          {language === "so"
-            ? "Soo gal ama akoon cusub ku samee Google."
-            : language === "ar"
-              ? "سجّل الدخول أو أنشئ حسابًا جديدًا باستخدام Google."
-              : "Sign in or create your Gamuur account with Google."}
+          {mode === "signup"
+            ? language === "so"
+              ? "Samee akoonkaaga Gamuur si aad u bilowdo."
+              : language === "ar"
+                ? "أنشئ حساب Gamuur الخاص بك للبدء."
+                : "Create your Gamuur account to get started."
+            : language === "so"
+              ? "Soo gal ama akoon cusub ku samee Google."
+              : language === "ar"
+                ? "سجّل الدخول أو أنشئ حسابًا جديدًا باستخدام Google."
+                : "Sign in or create your Gamuur account."}
         </p>
 
         <button className="submit" type="button" onClick={signInWithGoogle} disabled={busy}>
@@ -113,14 +156,25 @@ export default function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
-              autoComplete="current-password"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
             />
           </label>
 
           <button className="submit" disabled={busy}>
-            {busy ? "…" : t.login}
+            {busy
+              ? "…"
+              : mode === "signup"
+                ? language === "so" ? "Samee akoon" : language === "ar" ? "إنشاء حساب" : "Create account"
+                : t.login}
           </button>
         </form>
+
+        <div className="auth-switch">
+          {mode === "signup" ? "Already have an account?" : "Don't have an account?"}{" "}
+          <button type="button" onClick={() => switchMode(mode === "signup" ? "login" : "signup")}>
+            {mode === "signup" ? "Sign in" : "Sign up"}
+          </button>
+        </div>
 
         {message && <div className="message">{message}</div>}
         <Link href="/" className="back">
