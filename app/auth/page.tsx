@@ -2,12 +2,12 @@
 
 import "./auth.css";
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../lib/supabase-browser";
 import { useLanguage } from "../components/language-provider";
 
-export default function AuthPage() {
+function AuthContent() {
   const { t, language, setLanguage } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -99,5 +99,13 @@ export default function AuthPage() {
         <Link href="/learn" className="back">← {t.back}</Link>
       </section>
     </main>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<main className="auth"><section className="box"><div className="eyebrow">GAMUUR ACCOUNT</div><h1>Loading…</h1></section></main>}>
+      <AuthContent />
+    </Suspense>
   );
 }
