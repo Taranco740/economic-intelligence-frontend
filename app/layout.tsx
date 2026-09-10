@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { LanguageProvider } from "./components/language-provider";
+import { AuthGate } from "./components/auth-gate";
 
 export const metadata: Metadata = {
   title: "Gamuur — Economic Intelligence",
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" suppressHydrationWarning><body><LanguageProvider>{children}</LanguageProvider></body></html>;
+  return <html lang="en" suppressHydrationWarning><body><LanguageProvider><AuthGate>{children}</AuthGate></LanguageProvider></body></html>;
 }
