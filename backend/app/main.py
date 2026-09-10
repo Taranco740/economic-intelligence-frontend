@@ -7,17 +7,42 @@ from app.api.projects import router as projects_router
 from app.api.intelligence import router as intelligence_router
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
+
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version="0.6.0")
+
 cors_origins = [o.strip() for o in getattr(settings, "cors_origins", "http://localhost:3000").split(",") if o.strip()]
-app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Vercel routes public API requests through /api/* to this FastAPI function.
+# Strip that deployment prefix before FastAPI performs route matching, so the
+# existing backend endpoints (/health, /projects, /chat, etc.) keep working.
+@app.middleware("http")
+async def strip_vercel_api_prefix(request, call_next):
+    scope = request.scope
+    path = scope.get("path", "")
+    if path == "/api":
+        scope["path"] = "/"
+    elif path.startswith("/api/"):
+        scope["path"] = path[4:]
+    return await call_next(request)
+
 app.include_router(chat_router)
 app.include_router(projects_router)
 app.include_router(datasets_router)
 app.include_router(cleaning_router)
 app.include_router(intelligence_router)
+
 @app.get("/health", tags=["system"])
-def health() -> dict[str, str]: return {"status": "ok", "service": settings.app_name}
+def health() -> dict[str, str]:
+    return {"status": "ok", "service": settings.app_name}
+
 @app.get("/health/ready", tags=["system"])
 def readiness() -> dict[str, str]:
     get_supabase_client().table("profiles").select("id").limit(1).execute()
