@@ -12,8 +12,13 @@
 form { display: grid; gap: 15px; margin-top: 25px; }
 label { display: grid; gap: 7px; font-size: 11px; font-weight: 750; }
 input { border: 1px solid #d3dad2; border-radius: 9px; padding: 12px; font: inherit; outline: none; }
+input:focus { border-color: #17201b; box-shadow: 0 0 0 3px rgba(23,32,27,.06); }
 .submit { border: 0; background: #17201b; color: #fff; border-radius: 10px; padding: 13px; font-weight: 800; cursor: pointer; }
-.submit:disabled { opacity: .5; }
+.submit:disabled { opacity: .5; cursor: not-allowed; }
+.divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 0; color: #8a938b; font-size: 11px; }
+.divider::before, .divider::after { content: ""; height: 1px; background: #e1e6e0; flex: 1; }
+.auth-switch { margin-top: 20px; text-align: center; color: #737d75; font-size: 11px; }
+.auth-switch button { border: 0; background: none; padding: 0; color: #17201b; font: inherit; font-weight: 800; cursor: pointer; }
 .message { margin-top: 15px; padding: 12px; border-radius: 9px; background: #eef2ed; color: #566158; font-size: 11px; line-height: 1.5; }
 .back { display: block; margin-top: 22px; font-size: 11px; color: #747e76; text-decoration: none; }
 @media (max-width: 600px) { .box { margin-top: 7vh; padding: 25px; } .box h1 { font-size: 36px; } }
