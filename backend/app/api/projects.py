@@ -17,10 +17,13 @@ def _err(exc: Exception):
 @router.post("", response_model=ProjectResponse, status_code=201)
 def create_project(payload: ProjectCreate, user_id: str = Depends(get_current_user_id), supabase: Client = Depends(get_supabase_client)):
     try:
-        response = supabase.table("projects").insert({"owner_id": user_id, "name": payload.name, "description": payload.description, "settings": payload.settings}).select("*").single().execute()
+        response = supabase.table("projects").insert({"owner_id": user_id, "name": payload.name, "description": payload.description, "settings": payload.settings}).select("*").execute()
+        rows = response.data or []
+        if not rows:
+            raise RuntimeError("Supabase created no project row")
+        return ProjectResponse.model_validate(rows[0])
     except Exception as exc:
         _err(exc)
-    return ProjectResponse.model_validate(response.data)
 
 
 @router.get("", response_model=list[ProjectResponse])
