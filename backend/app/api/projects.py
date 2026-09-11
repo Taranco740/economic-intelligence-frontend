@@ -17,7 +17,12 @@ def _err(exc: Exception):
 @router.post("", response_model=ProjectResponse, status_code=201)
 def create_project(payload: ProjectCreate, user_id: str = Depends(get_current_user_id), supabase: Client = Depends(get_supabase_client)):
     try:
-        response = supabase.table("projects").insert({"owner_id": user_id, "name": payload.name, "description": payload.description, "settings": payload.settings}).select("*").execute()
+        response = supabase.table("projects").insert({
+            "owner_id": user_id,
+            "name": payload.name,
+            "description": payload.description,
+            "settings": payload.settings,
+        }).execute()
         rows = response.data or []
         if not rows:
             raise RuntimeError("Supabase created no project row")
@@ -64,7 +69,7 @@ def update_project(project_id: UUID, payload: ProjectUpdate, user_id: str = Depe
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: UUID, user_id: str = Depends(get_current_user_id), supabase: Client = Depends(get_supabase_client)):
     try:
-        response = supabase.table("projects").delete().eq("id", str(project_id)).eq("owner_id", user_id).select("id").execute()
+        response = supabase.table("projects").delete().eq("id", str(project_id)).eq("owner_id", user_id).execute()
     except Exception as exc:
         _err(exc)
     if not (response.data or []):
