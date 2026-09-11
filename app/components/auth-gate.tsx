@@ -44,7 +44,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, router]);
 
-  // Do not block the application behind an auth loading screen. The app
-  // renders immediately while authentication is checked in the background.
+  // Render the application immediately; authentication is checked in the background.
   return <>{children}</>;
 }
