@@ -7,7 +7,6 @@ export const maxDuration = 60;
 
 type Row = Record<string, unknown>;
 type ColumnProfile = { name: string; type: "number" | "date" | "boolean" | "text" | "empty"; missing: number; distinct: number; samples: unknown[]; min?: number; max?: number; mean?: number };
-
 function cleanName(value: unknown, index: number) { const raw = String(value ?? "").trim(); return raw || `column_${index + 1}`; }
 function isMissing(value: unknown) { return value === null || value === undefined || (typeof value === "string" && value.trim() === ""); }
 function numericValues(rows: Row[], key: string) { return rows.map((r) => typeof r[key] === "number" ? r[key] as number : Number(r[key])).filter((v): v is number => Number.isFinite(v)); }
@@ -41,7 +40,7 @@ export async function POST(request: Request) {
     if (doForecast) findings.forecasting = forecast(rows, columns);
     if (doReport) findings.report = { sections: ["Executive Summary", "Dataset Overview", "Data Quality", "Key Findings", "Trends", "Recommendations", "Limitations"] };
     if (doPresentation) findings.presentation = { requested: true, output_format: "pptx", language, note: "Slide generation will use verified analytical results; no generated photographic images." };
-    const profile = { filename: file.name, sheet: sheetName, rows: rows.length, columns: headers.length, quality_score: quality, columns };
+    const profile = { filename: file.name, sheet: sheetName, rows: rows.length, column_count: headers.length, quality_score: quality, columns };
     const ai = await generateAIText(language, prompt, { profile, findings }); const stages = ["understand", ...(doClean ? ["clean"] : []), ...(doAnalyze ? ["analyze", "discover"] : []), ...(doVisualize ? ["visualize"] : []), ...(doForecast ? ["forecast"] : []), ...(doReport || doPresentation ? ["report"] : [])];
     return NextResponse.json({ stages, requested, dataset: profile, findings, insights: ai.text || "Gamuur completed the requested data step only. Ask for another output whenever you want it.", ai_provider: ai.provider, ai_fallback_used: ai.fallback, ai_provider_failures: ai.failures, generated_at: new Date().toISOString() });
   } catch (error) { return NextResponse.json({ detail: error instanceof Error ? error.message : "Gamuur could not analyze the file." }, { status: 500 }); }
