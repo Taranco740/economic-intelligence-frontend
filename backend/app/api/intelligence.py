@@ -51,8 +51,11 @@ def run(body:RunRequest,project_id:UUID,user_id:str=Depends(get_current_user_id)
  if "analysis" in stages:result["analysis"]=analysis
  if "forecasting" in stages:result["forecasting"]={"status":"ready","numeric_series":list(df.select_dtypes(include=np.number).columns)[:8]}
  if "insights" in stages:
-  try:result["insights"],provider,failures=AIRouter().complete("analyze",[{"role":"system","content":"You are Gamuur's data analyst. Explain only computed results; never invent facts."},{"role":"user","content":str({"request":body.prompt,"analysis":analysis,"cleaning":notes})}]);result["ai_provider"]=provider;result["ai_fallback_used"]=bool(failures);result["ai_provider_failures"]=failures
-  except Exception:result["insights"]="Computed analytics are ready, but no AI provider is currently available."
+  try:
+   insights,_,_=AIRouter().complete("analyze",[{"role":"system","content":"You are Gamur's data analyst. Explain only computed results; never invent facts."},{"role":"user","content":str({"request":body.prompt,"analysis":analysis,"cleaning":notes})}])
+   result["insights"]=insights
+  except Exception:
+   result["insights"]="Computed analytics are ready, but the AI analysis service is temporarily unavailable."
  if "visualization" in stages:result["visualization"]={"charts":_charts(df)}
- if "report" in stages:result["report"]={"title":"Gamuur Data Intelligence Report","prompt":body.prompt,"analysis":analysis,"insights":result.get("insights")}
+ if "report" in stages:result["report"]={"title":"Gamur Data Intelligence Report","prompt":body.prompt,"analysis":analysis,"insights":result.get("insights")}
  return result
