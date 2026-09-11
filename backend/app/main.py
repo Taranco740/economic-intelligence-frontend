@@ -5,6 +5,7 @@ from app.api.cleaning import router as cleaning_router
 from app.api.datasets import router as datasets_router
 from app.api.projects import router as projects_router
 from app.api.intelligence import router as intelligence_router
+from app.api.exports import router as exports_router
 from app.api.history import router as history_router
 from app.core.config import get_settings
 from app.core.supabase import get_supabase_client
@@ -18,7 +19,7 @@ async def strip_vercel_api_prefix(request,call_next):
     if path=="/api":request.scope["path"]="/"
     elif path.startswith("/api/"):request.scope["path"]=path[4:]
     return await call_next(request)
-app.include_router(chat_router);app.include_router(projects_router);app.include_router(datasets_router);app.include_router(cleaning_router);app.include_router(intelligence_router);app.include_router(history_router)
+app.include_router(chat_router);app.include_router(projects_router);app.include_router(datasets_router);app.include_router(cleaning_router);app.include_router(intelligence_router);app.include_router(exports_router);app.include_router(history_router)
 @app.get("/health",tags=["system"])
 def health():return {"status":"ok","service":settings.app_name}
 @app.get("/health/ready",tags=["system"])
