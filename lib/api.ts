@@ -20,7 +20,16 @@ export async function createProject(token: string, name: string): Promise<Projec
 export async function getDatasets(token: string, projectId: string): Promise<Dataset[]> { return request<Dataset[]>(`/projects/${projectId}/datasets`, { token }); }
 export async function uploadDataset(token: string, projectId: string, name: string, file: File): Promise<Dataset> { const form=new FormData(); form.append("name",name); form.append("file",file); return request<Dataset>(`/projects/${projectId}/datasets`, {method:"POST",token,body:form}); }
 export async function runIntelligence(token: string, projectId: string, datasetId: string, prompt: string, stages: string[]): Promise<IntelligenceResult> { return request<IntelligenceResult>(`/projects/${projectId}/intelligence/run`, {method:"POST",token,body:JSON.stringify({dataset_id:datasetId,prompt,stages})}); }
-export async function runAnalyst(token: string, prompt: string, language: "en" | "so" | "ar", file: File): Promise<AnalystResult> { const form = new FormData(); form.append("prompt", prompt); form.append("language", language); form.append("file", file); return request<AnalystResult>("/analyst", { method:"POST", token, body:form }); }
+
+// File analysis uses a normal POST API route. It is deliberately not a Next.js Server Action,
+// so deployments do not invalidate an action ID used by an older browser bundle.
+export async function runAnalyst(token: string, prompt: string, language: "en" | "so" | "ar", file: File): Promise<AnalystResult> {
+  const form = new FormData();
+  form.append("prompt", prompt);
+  form.append("language", language);
+  form.append("file", file);
+  return request<AnalystResult>("/upload", { method:"POST", token, body:form });
+}
 
 // The chat route is /chat, not /api/chat. The frontend previously called /api/chat,
 // which produced the 404 the user was seeing. Keep dataset/analyst routes under /api,
