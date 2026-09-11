@@ -52,19 +52,20 @@ def update_project(project_id: UUID, payload: ProjectUpdate, user_id: str = Depe
     if not changes:
         raise HTTPException(status_code=400, detail="At least one field is required")
     try:
-        response = supabase.table("projects").update(changes).eq("id", str(project_id)).eq("owner_id", user_id).select("*").maybe_single().execute()
+        response = supabase.table("projects").update(changes).eq("id", str(project_id)).eq("owner_id", user_id).select("*").execute()
     except Exception as exc:
         _err(exc)
-    if not response.data:
+    rows = response.data or []
+    if not rows:
         raise HTTPException(status_code=404, detail="Project not found")
-    return ProjectResponse.model_validate(response.data)
+    return ProjectResponse.model_validate(rows[0])
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_project(project_id: UUID, user_id: str = Depends(get_current_user_id), supabase: Client = Depends(get_supabase_client)):
     try:
-        response = supabase.table("projects").delete().eq("id", str(project_id)).eq("owner_id", user_id).select("id").maybe_single().execute()
+        response = supabase.table("projects").delete().eq("id", str(project_id)).eq("owner_id", user_id).select("id").execute()
     except Exception as exc:
         _err(exc)
-    if not response.data:
+    if not (response.data or []):
         raise HTTPException(status_code=404, detail="Project not found")
