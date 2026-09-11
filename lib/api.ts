@@ -1,4 +1,4 @@
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api").replace(/\/$/, "");
+const API_BASE_URL = ((process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api").trim() || "/api").replace(/\/$/, "");
 export type BackendHealth = { status: string; service: string };
 export type Project = { id: string; name: string; description: string | null; status: string };
 export type Dataset = { id: string; project_id: string; name: string; source_type: string; description: string | null; current_version: number; created_at: string; updated_at: string };
@@ -21,8 +21,7 @@ export async function getDatasets(token: string, projectId: string): Promise<Dat
 export async function uploadDataset(token: string, projectId: string, name: string, file: File): Promise<Dataset> { const form=new FormData(); form.append("name",name); form.append("file",file); return request<Dataset>(`/projects/${projectId}/datasets`, {method:"POST",token,body:form}); }
 export async function runIntelligence(token: string, projectId: string, datasetId: string, prompt: string, stages: string[]): Promise<IntelligenceResult> { return request<IntelligenceResult>(`/projects/${projectId}/intelligence/run`, {method:"POST",token,body:JSON.stringify({dataset_id:datasetId,prompt,stages})}); }
 
-// File analysis uses a normal POST API route. It is deliberately not a Next.js Server Action,
-// so deployments do not invalidate an action ID used by an older browser bundle.
+// File analysis uses a normal POST API route. It is deliberately not a Next.js Server Action.
 export async function runAnalyst(token: string, prompt: string, language: "en" | "so" | "ar", file: File): Promise<AnalystResult> {
   const form = new FormData();
   form.append("prompt", prompt);
@@ -31,9 +30,8 @@ export async function runAnalyst(token: string, prompt: string, language: "en" |
   return request<AnalystResult>("/upload", { method:"POST", token, body:form });
 }
 
-// The chat route is /chat, not /api/chat. The frontend previously called /api/chat,
-// which produced the 404 the user was seeing. Keep dataset/analyst routes under /api,
-// while chat uses the existing route directly (and also works with an external backend base URL).
+// The chat route is /chat, not /api/chat. When using the built-in API base,
+// chat is intentionally rooted at the application route.
 export async function sendChat(token: string, message: string, language: "en" | "so" | "ar"): Promise<ChatResponse> {
   const chatBase = API_BASE_URL === "/api" ? "" : API_BASE_URL;
   return request<ChatResponse>(`${chatBase}/chat`, {method:"POST",token,body:JSON.stringify({message,language})});
