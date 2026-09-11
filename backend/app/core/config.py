@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     supabase_url: AnyHttpUrl
     supabase_service_role_key: SecretStr
 
-    # AI providers are optional. Gamur can run with any configured provider.
+    # AI providers are optional. Gamur chooses internally and falls back safely.
     openai_api_key: SecretStr | None = None
     openai_model: str = "gpt-5-mini"
     hf_token: SecretStr | None = None
@@ -22,15 +22,19 @@ class Settings(BaseSettings):
     mistral_model: str = "mistral-small-latest"
     cohere_api_key: SecretStr | None = None
     cohere_model: str = "command-a-03-2025"
+    xai_api_key: SecretStr | None = None
+    xai_model: str = "grok-4.6"
+
     ollama_api_key: SecretStr | None = None
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model: str = "llama3.2"
 
-    ai_default_order: str = "gemini,mistral,cohere,huggingface,ollama,openai"
-    ai_analyze_order: str = "gemini,mistral,huggingface,cohere,ollama,openai"
-    ai_visualize_order: str = "mistral,gemini,huggingface,cohere,ollama,openai"
-    ai_forecast_order: str = "mistral,gemini,huggingface,cohere,ollama,openai"
-    ai_report_order: str = "gemini,mistral,cohere,huggingface,ollama,openai"
+    ai_default_order: str = "gemini,xai,mistral,cohere,huggingface,openai"
+    ai_analyze_order: str = "gemini,xai,mistral,cohere,huggingface,openai"
+    ai_visualize_order: str = "gemini,xai,mistral,cohere,huggingface,openai"
+    ai_forecast_order: str = "mistral,xai,gemini,cohere,huggingface,openai"
+    ai_report_order: str = "gemini,xai,cohere,mistral,huggingface,openai"
+    ai_question_order: str = "gemini,xai,mistral,cohere,huggingface,openai"
 
     model_config = SettingsConfigDict(
         env_file=".env",
