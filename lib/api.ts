@@ -1,39 +1,16 @@
-const API_BASE_URL = ((process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api").trim() || "/api").replace(/\/$/, "");
-export type BackendHealth = { status: string; service: string };
-export type Project = { id: string; name: string; description: string | null; status: string };
-export type Dataset = { id: string; project_id: string; name: string; source_type: string; description: string | null; current_version: number; created_at: string; updated_at: string };
-export type IntelligenceResult = { stages: string[]; dataset: { rows: number; columns: number }; cleaning?: { changes: string[]; rows_after: number }; analysis?: { rows: number; columns: number; numeric_columns: string[]; summary: Array<{ column: string; count: number; mean: number; min: number; max: number; std: number }>; correlations: Record<string, Record<string, number | null>> }; forecasting?: { status: string; numeric_series: string[] }; insights?: string; visualization?: { charts: Array<{ type: string; title: string; xKey: string; yKey: string; data: Array<Record<string, number>> }> }; report?: { title: string; prompt: string; analysis: unknown; insights?: string } };
-export type AnalystResult = { stages: string[]; dataset: { filename: string; sheet: string; rows: number; column_count: number; quality_score: number; columns: unknown[] }; requested?: Record<string, boolean>; findings: { data_quality: unknown; cleaning: unknown; analysis: unknown; questions?: string[]; visualization: unknown; forecasting: unknown; report: unknown; presentation?: unknown }; insights: string; generated_at: string; ai_provider?: string; ai_fallback_used?: boolean; ai_provider_failures?: string[] };
-export type ChatResponse = { answer: string; language: "en" | "so" | "ar"; ai_provider?: string; ai_fallback_used?: boolean; ai_provider_failures?: string[] };
-type RequestOptions = RequestInit & { token?: string };
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers = new Headers(options.headers); headers.set("Accept", "application/json");
-  if (options.body && !(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
-  if (options.token) headers.set("Authorization", `Bearer ${options.token}`);
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers, cache: "no-store" });
-  if (!response.ok) { let detail=`Request failed (${response.status})`; try { const body=await response.json(); detail=body.detail?.message??body.detail??detail; } catch {} throw new Error(typeof detail==="string"?detail:JSON.stringify(detail)); }
-  if (response.status===204) return undefined as T; return response.json() as Promise<T>;
-}
-export async function getBackendHealth(): Promise<BackendHealth> { return request<BackendHealth>("/health"); }
-export async function getProjects(token: string): Promise<Project[]> { return request<Project[]>("/projects", { token }); }
-export async function createProject(token: string, name: string): Promise<Project> { return request<Project>("/projects", { method:"POST", token, body:JSON.stringify({name,description:null,settings:{}}) }); }
-export async function getDatasets(token: string, projectId: string): Promise<Dataset[]> { return request<Dataset[]>(`/projects/${projectId}/datasets`, { token }); }
-export async function uploadDataset(token: string, projectId: string, name: string, file: File): Promise<Dataset> { const form=new FormData(); form.append("name",name); form.append("file",file); return request<Dataset>(`/projects/${projectId}/datasets`, {method:"POST",token,body:form}); }
-export async function runIntelligence(token: string, projectId: string, datasetId: string, prompt: string, stages: string[]): Promise<IntelligenceResult> { return request<IntelligenceResult>(`/projects/${projectId}/intelligence/run`, {method:"POST",token,body:JSON.stringify({dataset_id:datasetId,prompt,stages})}); }
-
-// File analysis uses a normal POST API route. It is deliberately not a Next.js Server Action.
-export async function runAnalyst(token: string, prompt: string, language: "en" | "so" | "ar", file: File): Promise<AnalystResult> {
-  const form = new FormData();
-  form.append("prompt", prompt);
-  form.append("language", language);
-  form.append("file", file);
-  return request<AnalystResult>("/upload", { method:"POST", token, body:form });
-}
-
-// The chat route is /chat, not /api/chat. When using the built-in API base,
-// chat is intentionally rooted at the application route.
-export async function sendChat(token: string, message: string, language: "en" | "so" | "ar"): Promise<ChatResponse> {
-  const chatBase = API_BASE_URL === "/api" ? "" : API_BASE_URL;
-  return request<ChatResponse>(`${chatBase}/chat`, {method:"POST",token,body:JSON.stringify({message,language})});
-}
-export { API_BASE_URL };
+const API_BASE_URL=((process.env.NEXT_PUBLIC_API_BASE_URL??"/api").trim()||"/api").replace(/\/$/,"");
+export type BackendHealth={status:string;service:string};
+export type Project={id:string;name:string;description:string|null;status:string};
+export type Dataset={id:string;project_id:string;name:string;source_type:string;description:string|null;current_version:number;created_at:string;updated_at:string};
+export type HistoryItem={id:string;project_id:string;title:string;mode:string;created_at:string};
+export type IntelligenceResult={stages:string[];dataset:{rows:number;columns:number};cleaning?:{changes:string[];rows_after:number};analysis?:{rows:number;columns:number;numeric_columns:string[];summary:Array<{column:string;count:number;mean:number;min:number;max:number;std:number}>;correlations:Record<string,Record<string,number|null>>};forecasting?:{status:string;numeric_series:string[]};insights?:string;visualization?:{charts:Array<{type:string;title:string;xKey:string;yKey:string;data:Array<Record<string,number>>}>};report?:{title:string;prompt:string;analysis:unknown;insights?:string}};
+type RequestOptions=RequestInit&{token?:string};
+async function request<T>(path:string,options:RequestOptions={}):Promise<T>{const headers=new Headers(options.headers);headers.set("Accept","application/json");if(options.body&&!(options.body instanceof FormData))headers.set("Content-Type","application/json");if(options.token)headers.set("Authorization",`Bearer ${options.token}`);const response=await fetch(`${API_BASE_URL}${path}`,{...options,headers,cache:"no-store"});if(!response.ok){let detail=`Request failed (${response.status})`;try{const body=await response.json();detail=body.detail?.message??body.detail??detail}catch{}throw new Error(typeof detail==="string"?detail:JSON.stringify(detail))}if(response.status===204)return undefined as T;return response.json() as Promise<T>}
+export const getBackendHealth=()=>request<BackendHealth>("/health");
+export const getProjects=(token:string)=>request<Project[]>("/projects",{token});
+export const createProject=(token:string,name:string)=>request<Project>("/projects",{method:"POST",token,body:JSON.stringify({name,description:null,settings:{}})});
+export const getDatasets=(token:string,projectId:string)=>request<Dataset[]>(`/projects/${projectId}/datasets`,{token});
+export async function uploadDataset(token:string,projectId:string,name:string,file:File){const form=new FormData();form.append("name",name);form.append("file",file);return request<Dataset>(`/projects/${projectId}/datasets`,{method:"POST",token,body:form})}
+export const runIntelligence=(token:string,projectId:string,datasetId:string,prompt:string,stages:string[])=>request<IntelligenceResult>(`/projects/${projectId}/intelligence/run`,{method:"POST",token,body:JSON.stringify({dataset_id:datasetId,prompt,stages})});
+export const getHistory=(token:string)=>request<HistoryItem[]>("/history",{token});
+export {API_BASE_URL};
