@@ -1,0 +1,151 @@
+import { NextResponse } from "next/server";
+import * as XLSX from "xlsx";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+type Row = Record<string, unknown>;
+
+type ColumnProfile = {
+  name: string;
+  type: "number" | "date" | "boolean" | "text" | "empty";
+  missing: number;
+  distinct: number;
+  samples: unknown[];
+  min?: number;
+  max?: number;
+  mean?: number;
+};
+
+function cleanName(value: unknown, index: number) {
+  const raw = String(value ?? "").trim();
+  return raw || `column_${index + 1}`;
+}
+
+function isMissing(value: unknown) {
+  return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+}
+
+function numericValues(rows: Row[], key: string) {
+  return rows.map((r) => typeof r[key] === "number" ? r[key] as number : Number(r[key])).filter((v) => Number.isFinite(v));
+}
+
+function detectType(values: unknown[]): ColumnProfile["type"] {
+  const present = values.filter((v) => !isMissing(v));
+  if (!present.length) return "empty";
+  if (present.every((v) => typeof v === "boolean")) return "boolean";
+  if (present.every((v) => typeof v === "number" && Number.isFinite(v))) return "number";
+  const dateLike = present.filter((v) => v instanceof Date || (typeof v === "string" && !Number.isNaN(Date.parse(v)))).length;
+  if (dateLike / present.length >= 0.85) return "date";
+  return "text";
+}
+
+function profileRows(rows: Row[], headers: string[]): ColumnProfile[] {
+  return headers.map((name) => {
+    const values = rows.map((r) => r[name]);
+    const type = detectType(values);
+    const present = values.filter((v) => !isMissing(v));
+    const distinct = new Set(present.map((v) => String(v))).size;
+    const out: ColumnProfile = { name, type, missing: values.length - present.length, distinct, samples: present.slice(0, 5) };
+    if (type === "number") {
+      const nums = numericValues(rows, name);
+      if (nums.length) {
+        const sum = nums.reduce((a, b) => a + b, 0);
+        out.min = Math.min(...nums); out.max = Math.max(...nums); out.mean = sum / nums.length;
+      }
+    }
+    return out;
+  });
+}
+
+function qualityScore(rows: Row[], columns: ColumnProfile[]) {
+  if (!rows.length) return 0;
+  const missingRate = columns.reduce((sum, c) => sum + c.missing, 0) / (rows.length * Math.max(columns.length, 1));
+  const duplicateCount = rows.length - new Set(rows.map((r) => JSON.stringify(r))).size;
+  const duplicateRate = duplicateCount / rows.length;
+  return Math.max(0, Math.min(100, Math.round(100 - missingRate * 55 - duplicateRate * 30)));
+}
+
+function buildCharts(rows: Row[], columns: ColumnProfile[]) {
+  const date = columns.find((c) => c.type === "date");
+  const nums = columns.filter((c) => c.type === "number").slice(0, 3);
+  const charts: Array<Record<string, unknown>> = [];
+  if (date && nums.length) {
+    const sorted = [...rows].filter((r) => !isMissing(r[date.name])).sort((a, b) => new Date(String(a[date.name])).getTime() - new Date(String(b[date.name])).getTime()).slice(-60);
+    charts.push({ type: "line", title: `${nums[0].name} over time`, xKey: date.name, yKey: nums[0].name, data: sorted.map((r) => ({ [date.name]: r[date.name], [nums[0].name]: r[nums[0].name] })) });
+  }
+  if (nums.length) {
+    charts.push({ type: "bar", title: `Distribution of ${nums[0].name}`, xKey: nums[0].name, yKey: "count", data: nums[0].samples.map((_, i) => ({ [nums[0].name]: nums[0].samples[i], count: 1 })) });
+  }
+  return charts;
+}
+
+function forecast(rows: Row[], columns: ColumnProfile[]) {
+  const date = columns.find((c) => c.type === "date");
+  const target = columns.find((c) => c.type === "number");
+  if (!date || !target) return { status: "insufficient_data", reason: "A usable date/time column and numeric target were not both detected." };
+  const points = rows.map((r, i) => ({ x: new Date(String(r[date.name])).getTime(), y: Number(r[target.name]), i })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y)).sort((a, b) => a.x - b.x);
+  if (points.length < 12) return { status: "insufficient_data", reason: "At least 12 usable time-series observations are recommended for a first forecast." };
+  const n = points.length; const meanX = points.reduce((s, p) => s + p.x, 0) / n; const meanY = points.reduce((s, p) => s + p.y, 0) / n;
+  const slope = points.reduce((s, p) => s + (p.x - meanX) * (p.y - meanY), 0) / Math.max(1, points.reduce((s, p) => s + (p.x - meanX) ** 2, 0));
+  const intercept = meanY - slope * meanX; const last = points[n - 1];
+  const step = n > 1 ? Math.max(1, points[n - 1].x - points[n - 2].x) : 86400000;
+  const values = Array.from({ length: 6 }, (_, i) => { const x = last.x + step * (i + 1); const y = intercept + slope * x; return { period: new Date(x).toISOString(), predicted: y }; });
+  return { status: "completed", method: "trend_baseline", target: target.name, time: date.name, forecast: values, warning: "Baseline trend forecast only; seasonality and external drivers require a richer time-series model." };
+}
+
+async function aiSummary(language: string, prompt: string, profile: unknown, findings: unknown) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) return null;
+  const languageName = language === "so" ? "Somali" : language === "ar" ? "Arabic" : "English";
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || "gpt-5-mini",
+      instructions: `You are Gamuur, a Somali-owned AI data analyst. Answer in ${languageName}. Never call yourself ChatGPT. Use only the supplied evidence. Clearly distinguish observed facts from inference and uncertainty. Do not invent numbers. The user asked for: ${prompt}. Explain the most useful findings in plain language and suggest the next 3 questions worth investigating.`,
+      input: JSON.stringify({ profile, findings }),
+    }),
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  return typeof data.output_text === "string" ? data.output_text : null;
+}
+
+export async function POST(request: Request) {
+  try {
+    const form = await request.formData();
+    const file = form.get("file");
+    const prompt = String(form.get("prompt") || "Analyze this dataset and tell me what I need to know.");
+    const language = String(form.get("language") || "en");
+    if (!(file instanceof File)) return NextResponse.json({ detail: "A CSV or Excel file is required." }, { status: 400 });
+    if (file.size > 25 * 1024 * 1024) return NextResponse.json({ detail: "Files are limited to 25 MB for this first analyst pass." }, { status: 413 });
+    if (!/\.(csv|xlsx|xls)$/i.test(file.name)) return NextResponse.json({ detail: "Only CSV and Excel files are supported." }, { status: 400 });
+
+    const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true, dense: true });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) return NextResponse.json({ detail: "The workbook contains no sheets." }, { status: 400 });
+    const sheet = workbook.Sheets[sheetName];
+    const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: true });
+    if (!raw.length) return NextResponse.json({ detail: "The selected sheet is empty." }, { status: 400 });
+    const headers = (raw[0] || []).map(cleanName);
+    const rows: Row[] = raw.slice(1).map((line) => Object.fromEntries(headers.map((h, i) => [h, (line as unknown[])[i] ?? null]))).filter((r) => Object.values(r).some((v) => !isMissing(v)));
+    const columns = profileRows(rows, headers);
+    const quality = qualityScore(rows, columns);
+    const duplicates = rows.length - new Set(rows.map((r) => JSON.stringify(r))).size;
+    const suspicious = columns.filter((c) => c.type === "number" && c.min !== undefined && c.max !== undefined && (c.min < 0 || c.max > 1000000000)).map((c) => c.name);
+    const findings = {
+      data_quality: { score: quality, missing_cells: columns.reduce((s, c) => s + c.missing, 0), duplicate_rows: duplicates, suspicious_numeric_columns: suspicious },
+      cleaning: { recommended: columns.filter((c) => c.missing > 0).map((c) => `Review missing values in ${c.name}`), duplicate_rows: duplicates },
+      analysis: { numeric_columns: columns.filter((c) => c.type === "number").map((c) => ({ name: c.name, mean: c.mean, min: c.min, max: c.max })), date_columns: columns.filter((c) => c.type === "date").map((c) => c.name), categorical_columns: columns.filter((c) => c.type === "text").map((c) => ({ name: c.name, distinct: c.distinct })) },
+      questions: ["What are the strongest trends?", "Which categories or segments drive the results?", "Which data-quality issues could change the conclusions?"],
+      visualization: { charts: buildCharts(rows, columns) },
+      forecasting: forecast(rows, columns),
+      report: { sections: ["Executive Summary", "Dataset Overview", "Data Quality", "Key Findings", "Trends", "Forecast", "Risks and Limitations", "Recommendations", "Questions for Further Investigation"] },
+    };
+    const profile = { filename: file.name, sheet: sheetName, rows: rows.length, columns: headers.length, quality_score: quality, columns };
+    const summary = await aiSummary(language, prompt, profile, findings);
+    return NextResponse.json({ stages: ["understand", "clean", "analyze", "discover", "visualize", "forecast", "report"], dataset: profile, findings, insights: summary || "Gamuur completed the first evidence-based analysis pass. Review the profile, quality findings, recommended questions, charts, and forecast before making decisions.", generated_at: new Date().toISOString() });
+  } catch (error) {
+    return NextResponse.json({ detail: error instanceof Error ? error.message : "Gamuur could not analyze the file." }, { status: 500 });
+  }
+}
