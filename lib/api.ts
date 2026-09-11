@@ -11,9 +11,11 @@ export const getProjects=(token:string)=>request<Project[]>("/projects",{token})
 export const createProject=(token:string,name:string)=>request<Project>("/projects",{method:"POST",token,body:JSON.stringify({name,description:null,settings:{}})});
 export const getDatasets=(token:string,projectId:string)=>request<Dataset[]>(`/projects/${projectId}/datasets`,{token});
 export async function uploadDataset(token:string,projectId:string,name:string,file:File){const form=new FormData();form.append("name",name);form.append("file",file);return request<Dataset>(`/projects/${projectId}/datasets`,{method:"POST",token,body:form})}
+export async function createDatasetVersion(token:string,projectId:string,datasetId:string,file:File){const form=new FormData();form.append("file",file);return request<any>(`/projects/${projectId}/datasets/${datasetId}/versions`,{method:"POST",token,body:form})}
 export const runIntelligence=(token:string,projectId:string,datasetId:string,prompt:string,stages:string[])=>request<IntelligenceResult>(`/projects/${projectId}/intelligence/run`,{method:"POST",token,body:JSON.stringify({dataset_id:datasetId,prompt,stages})});
 export const getHistory=(token:string)=>request<HistoryItem[]>("/history",{token});
 export const createHistory=(token:string,projectId:string,title:string,mode="full",datasetId?:string,result?:IntelligenceResult)=>request<HistoryItem>(`/history/projects/${projectId}`,{method:"POST",token,body:JSON.stringify({title,mode,dataset_id:datasetId||null,result:result||{}})});
-export const renameHistory=(token:string,id:string,title:string)=>request<HistoryItem>(`/history/${id}`,{method:"PATCH",token,body:JSON.stringify({title,mode:"full",result:{}})});
-export const askData=(token:string,message:string)=>request<{answer:string;language:string;ai_provider?:string}>("/chat",{method:"POST",token,body:JSON.stringify({message,language:"en"})});
+export const renameHistory=(token:string,id:string,title:string)=>request<HistoryItem>(`/history/${id}`,{method:"PATCH",token,body:JSON.stringify({title,mode:"full"})});
+export const deleteHistory=(token:string,id:string)=>request<void>(`/history/${id}`,{method:"DELETE",token});
+export const askData=(token:string,message:string,context="")=>request<{answer:string;language:string;ai_provider?:string}>("/chat",{method:"POST",token,body:JSON.stringify({message,language:"en",context})});
 export {API_BASE_URL};
