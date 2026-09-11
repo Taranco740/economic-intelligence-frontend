@@ -1,34 +1,34 @@
 import { NextResponse } from "next/server";
+import { generateAIText } from "../../lib/ai-provider";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const message = typeof body?.message === "string" ? body.message.trim() : "";
     const language = body?.language === "so" || body?.language === "ar" ? body.language : "en";
-
     if (!message) return NextResponse.json({ detail: "Message is required." }, { status: 400 });
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ detail: "OPENAI_API_KEY is not configured in Vercel." }, { status: 500 });
-
     const languageName = language === "so" ? "Somali" : language === "ar" ? "Arabic" : "English";
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5-mini",
-        instructions: `You are Gamuur, an AI data-analysis assistant. Reply in ${languageName}. Be concise, useful, and clear. If no dataset is uploaded, explain what Gamuur can analyze and what data the user can upload.`,
-        input: message,
-      }),
+    const ai = await generateAIText(language, message, {
+      task: "general_chat",
+      message,
+      instruction: `You are Gamuur, a Somali-owned AI data analyst. Reply in ${languageName}. Never identify yourself as ChatGPT. Answer the user's request directly. If the request concerns data, ask them to upload the relevant dataset when needed. Do not claim to have analyzed data that was not supplied. Do not perform unrelated extra tasks.`
     });
 
-    const data = await response.json();
-    if (!response.ok) return NextResponse.json({ detail: data?.error?.message || "OpenAI request failed." }, { status: response.status });
+    if (!ai.text) {
+      return NextResponse.json({ detail: "Gamuur could not reach any configured AI provider. Please check the configured provider keys and quotas." }, { status: 503 });
+    }
 
-    const answer = typeof data?.output_text === "string" ? data.output_text : "I could not generate a response.";
-    return NextResponse.json({ answer, language });
+    return NextResponse.json({
+      answer: ai.text,
+      language,
+      ai_provider: ai.provider,
+      ai_fallback_used: ai.fallback,
+      ai_provider_failures: ai.failures,
+    });
   } catch (error) {
     return NextResponse.json({ detail: error instanceof Error ? error.message : "Chat request failed." }, { status: 500 });
   }
