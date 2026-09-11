@@ -3,7 +3,7 @@ export type BackendHealth = { status: string; service: string };
 export type Project = { id: string; name: string; description: string | null; status: string };
 export type Dataset = { id: string; project_id: string; name: string; source_type: string; description: string | null; current_version: number; created_at: string; updated_at: string };
 export type IntelligenceResult = { stages: string[]; dataset: { rows: number; columns: number }; cleaning?: { changes: string[]; rows_after: number }; analysis?: { rows: number; columns: number; numeric_columns: string[]; summary: Array<{ column: string; count: number; mean: number; min: number; max: number; std: number }>; correlations: Record<string, Record<string, number | null>> }; forecasting?: { status: string; numeric_series: string[] }; insights?: string; visualization?: { charts: Array<{ type: string; title: string; xKey: string; yKey: string; data: Array<Record<string, number>> }> }; report?: { title: string; prompt: string; analysis: unknown; insights?: string } };
-export type AnalystResult = { stages: string[]; dataset: { filename: string; sheet: string; rows: number; column_count: number; quality_score: number; columns: unknown[] }; findings: { data_quality: unknown; cleaning: unknown; analysis: unknown; questions: string[]; visualization: unknown; forecasting: unknown; report: unknown }; insights: string; generated_at: string };
+export type AnalystResult = { stages: string[]; dataset: { filename: string; sheet: string; rows: number; column_count: number; quality_score: number; columns: unknown[] }; requested?: Record<string, boolean>; findings: { data_quality: unknown; cleaning: unknown; analysis: unknown; questions?: string[]; visualization: unknown; forecasting: unknown; report: unknown; presentation?: unknown }; insights: string; generated_at: string; ai_provider?: string; ai_fallback_used?: boolean; ai_provider_failures?: string[] };
 export type ChatResponse = { answer: string; language: "en" | "so" | "ar"; ai_provider?: string; ai_fallback_used?: boolean; ai_provider_failures?: string[] };
 type RequestOptions = RequestInit & { token?: string };
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -21,5 +21,12 @@ export async function getDatasets(token: string, projectId: string): Promise<Dat
 export async function uploadDataset(token: string, projectId: string, name: string, file: File): Promise<Dataset> { const form=new FormData(); form.append("name",name); form.append("file",file); return request<Dataset>(`/projects/${projectId}/datasets`, {method:"POST",token,body:form}); }
 export async function runIntelligence(token: string, projectId: string, datasetId: string, prompt: string, stages: string[]): Promise<IntelligenceResult> { return request<IntelligenceResult>(`/projects/${projectId}/intelligence/run`, {method:"POST",token,body:JSON.stringify({dataset_id:datasetId,prompt,stages})}); }
 export async function runAnalyst(token: string, prompt: string, language: "en" | "so" | "ar", file: File): Promise<AnalystResult> { const form = new FormData(); form.append("prompt", prompt); form.append("language", language); form.append("file", file); return request<AnalystResult>("/analyst", { method:"POST", token, body:form }); }
-export async function sendChat(token: string, message: string, language: "en" | "so" | "ar"): Promise<ChatResponse> { return request<ChatResponse>("/chat", {method:"POST",token,body:JSON.stringify({message,language})}); }
+
+// The chat route is /chat, not /api/chat. The frontend previously called /api/chat,
+// which produced the 404 the user was seeing. Keep dataset/analyst routes under /api,
+// while chat uses the existing route directly (and also works with an external backend base URL).
+export async function sendChat(token: string, message: string, language: "en" | "so" | "ar"): Promise<ChatResponse> {
+  const chatBase = API_BASE_URL === "/api" ? "" : API_BASE_URL;
+  return request<ChatResponse>(`${chatBase}/chat`, {method:"POST",token,body:JSON.stringify({message,language})});
+}
 export { API_BASE_URL };
