@@ -1,9 +1,9 @@
-export type AIProvider = "openai" | "anthropic" | "gemini" | "kimi" | "huggingface";
+export type AIProvider = "openai" | "anthropic" | "gemini" | "kimi" | "huggingface" | "nvidia";
 
-const providers: AIProvider[] = ["openai", "anthropic", "gemini", "kimi", "huggingface"];
+const providers: AIProvider[] = ["openai", "anthropic", "gemini", "kimi", "huggingface", "nvidia"];
 
 function order(): AIProvider[] {
-  const raw = String(process.env.AI_PROVIDER_ORDER || "openai,anthropic,gemini,kimi,huggingface").split(",").map((x) => x.trim().toLowerCase());
+  const raw = String(process.env.AI_PROVIDER_ORDER || "openai,anthropic,gemini,kimi,huggingface,nvidia").split(",").map((x) => x.trim().toLowerCase());
   return Array.from(new Set(raw.filter((x): x is AIProvider => providers.includes(x as AIProvider))));
 }
 function languageName(language: string) { return language === "so" ? "Somali" : language === "ar" ? "Arabic" : "English"; }
@@ -21,6 +21,7 @@ export async function generateAIText(language: string, prompt: string, payload: 
       else if (provider === "gemini") text = await gemini(instructions, input);
       else if (provider === "kimi") text = await kimi(instructions, input);
       else if (provider === "huggingface") text = await huggingFace(instructions, input);
+      else if (provider === "nvidia") text = await nvidia(instructions, input);
       if (text?.trim()) return { text: text.trim(), provider, fallback: failures.length > 0, failures };
       failures.push(`${provider}: empty response`);
     } catch (error) {
@@ -64,7 +65,16 @@ async function kimi(instructions: string, input: string) {
 async function huggingFace(instructions: string, input: string) {
   const key = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN; if (!key) throw new Error("HUGGINGFACE_API_KEY is not configured");
   const model = process.env.HUGGINGFACE_MODEL || "Qwen/Qwen2.5-72B-Instruct";
-  const r = await fetch(`https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ inputs: `${instructions}\n\n${input}`, parameters: { max_new_tokens: 1200, return_full_text: false } }) });
+  const r = await fetch(`https://api-inference.huggingface.co/models/${model}`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ inputs: `${instructions}\n\n${input}`, parameters: { max_new_tokens: 1200, return_full_text: false } }) });
   if (!r.ok) throw new Error(safeError("Hugging Face", r.status, await r.text()));
   const d = await r.json(); const first = Array.isArray(d) ? d[0] : d; return typeof first?.generated_text === "string" ? first.generated_text : null;
+}
+
+async function nvidia(instructions: string, input: string) {
+  const key = process.env.NVIDIA_API_KEY; if (!key) throw new Error("NVIDIA_API_KEY is not configured");
+  const model = process.env.NVIDIA_MODEL || "openai/gpt-oss-20b";
+  const base = process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1";
+  const r = await fetch(`${base.replace(/\/$/, "")}/chat/completions`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, Accept: "application/json" }, body: JSON.stringify({ model, temperature: 0.2, max_tokens: 1200, stream: false, messages: [{ role: "system", content: instructions }, { role: "user", content: input }] }) });
+  if (!r.ok) throw new Error(safeError("NVIDIA", r.status, await r.text()));
+  const d = await r.json(); return typeof d?.choices?.[0]?.message?.content === "string" ? d.choices[0].message.content : null;
 }
