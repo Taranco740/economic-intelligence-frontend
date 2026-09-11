@@ -137,13 +137,10 @@ def _ingest_version(
                 "upsert": "false",
             },
         )
-        response = (
-            supabase.table("dataset_versions")
-            .insert(row)
-            .select("*")
-            .single()
-            .execute()
-        )
+        response = supabase.table("dataset_versions").insert(row).select("*").execute()
+        rows = response.data or []
+        if not rows:
+            raise RuntimeError("Supabase created no dataset version row")
         supabase.table("datasets").update({"current_version": version_no}).eq(
             "id", str(dataset_id)
         ).execute()
@@ -154,7 +151,7 @@ def _ingest_version(
             pass
         _database_error(exc)
 
-    return DatasetVersionResponse.model_validate(response.data)
+    return DatasetVersionResponse.model_validate(rows[0])
 
 
 @router.post("", response_model=DatasetResponse, status_code=201)
@@ -171,8 +168,6 @@ def create_dataset(
     if not clean_name:
         raise HTTPException(status_code=422, detail="Name is required")
 
-    # Validate and profile before creating the parent row so a bad upload cannot
-    # leave an orphan dataset behind.
     suffix = _validate_upload(file.filename)
     data = _read_upload(file, suffix)
     profile = _profile_file(data, suffix)
@@ -217,7 +212,10 @@ def create_dataset(
             },
         )
         supabase.table("dataset_versions").insert(version_row).execute()
-        result = supabase.table("datasets").select("*").eq("id", str(dataset_id)).single().execute()
+        response = supabase.table("datasets").select("*").eq("id", str(dataset_id)).execute()
+        rows = response.data or []
+        if not rows:
+            raise RuntimeError("Supabase created no dataset row")
     except Exception as exc:
         try:
             supabase.storage.from_(_STORAGE_BUCKET).remove([storage_path])
@@ -233,7 +231,7 @@ def create_dataset(
             pass
         _database_error(exc)
 
-    return DatasetResponse.model_validate(result.data)
+    return DatasetResponse.model_validate(rows[0])
 
 
 @router.get("", response_model=list[DatasetResponse])
@@ -306,7 +304,6 @@ def create_dataset_version(
             .eq("project_id", str(project_id))
             .maybe_single()
             .execute()
-        )
     except Exception as exc:
         _database_error(exc)
     if not dataset.data:
