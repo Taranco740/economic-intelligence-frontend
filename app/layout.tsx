@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "./components/artifact-views.module.css";
+import "./components/artifact-views.css";
 import { LanguageProvider } from "./components/language-provider";
 import { AuthGate } from "./components/auth-gate";
 
