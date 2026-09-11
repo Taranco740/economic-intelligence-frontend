@@ -1,0 +1,15 @@
+.analyticsDownloads{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;width:min(360px,100%)}
+.analyticsDownloads button,.artifactActions button{border:1px solid #d7e0e6;background:#fff;color:#173a5e;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(23,58,94,.08)}
+.analyticsDownloads button:first-child,.artifactActions button:first-child{background:#173a5e;color:#fff;border-color:#173a5e}
+.analyticsDownloads button:disabled{opacity:.45;cursor:not-allowed}
+.dashboardFilters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 14px;margin:14px 0;border:1px solid #e2e8f0;border-radius:14px;background:#fff}
+.dashboardFilters>span{font-size:11px;font-weight:800;color:#64748b;letter-spacing:.08em;margin-right:4px}
+.dashboardFilters button{border:0;border-radius:999px;padding:8px 13px;background:#eef3f7;color:#334155;font-weight:700;cursor:pointer;text-transform:capitalize}
+.dashboardFilters button.active{background:#16b8c4;color:#fff}
+.visualCardLarge{min-height:360px}
+.visualCardLarge .svgChart{width:100%;min-height:250px}
+.heatmapWrap{overflow:auto;padding:10px 0}
+.heatmap{display:grid;gap:3px;align-items:center;width:max-content}
+.heatmap span{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:5px;font-size:9px;font-weight:700;color:#173a5e}
+.heatLabel{font-size:9px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:760px){.analyticsDownloads{grid-template-columns:1fr}.visualCardLarge{min-height:280px}}
