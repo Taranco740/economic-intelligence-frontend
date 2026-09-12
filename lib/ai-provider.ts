@@ -5,17 +5,18 @@ const autoOrder: AIProvider[] = ["gemini", "kimi", "anthropic", "nvidia", "groq"
 
 function order(preferred?: string): AIProvider[] {
   const requested = String(preferred || "").trim().toLowerCase();
-  // The UI sends "auto" when the user wants automatic provider selection.
-  // Treat it exactly like an omitted preference instead of producing an empty
-  // provider list and falsely reporting that no AI is available.
   if (!requested || requested === "auto") {
     const configuredOrder = String(process.env.AI_PROVIDER_ORDER || "").split(",").map((x) => x.trim().toLowerCase());
-    const source = configuredOrder.length && configuredOrder.some(Boolean) ? configuredOrder : autoOrder;
-    return Array.from(new Set(source.filter((x): x is AIProvider => autoOrder.includes(x as AIProvider) && Boolean(process.env[envFor(x)]))));
+    const source: string[] = configuredOrder.some(Boolean) ? configuredOrder : autoOrder;
+    return Array.from(new Set(source.filter((x): x is AIProvider => isAutoProvider(x) && Boolean(process.env[envFor(x)]))));
   }
 
   if (providers.includes(requested as AIProvider)) return [requested as AIProvider];
   return [];
+}
+
+function isAutoProvider(value: string): value is AIProvider {
+  return (autoOrder as string[]).includes(value);
 }
 
 function envFor(provider: AIProvider): string {
