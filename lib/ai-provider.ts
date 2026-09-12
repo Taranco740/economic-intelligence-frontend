@@ -1,6 +1,37 @@
 export type AIProvider = "openai" | "anthropic" | "gemini" | "kimi" | "huggingface" | "nvidia" | "groq" | "cerebras" | "openrouter";
+
 const providers: AIProvider[] = ["gemini", "kimi", "anthropic", "nvidia", "groq", "cerebras", "openrouter", "huggingface", "openai"];
-function order(preferred?: string): AIProvider[] { const raw = String(preferred || process.env.AI_PROVIDER_ORDER || "gemini,kimi,anthropic,nvidia,groq,cerebras,openrouter,huggingface").split(",").map((x) => x.trim().toLowerCase()); return Array.from(new Set(raw.filter((x): x is AIProvider => providers.includes(x as AIProvider)))); }
+const autoOrder: AIProvider[] = ["gemini", "kimi", "anthropic", "nvidia", "groq", "cerebras", "openrouter", "huggingface"];
+
+function order(preferred?: string): AIProvider[] {
+  const requested = String(preferred || "").trim().toLowerCase();
+  // The UI sends "auto" when the user wants automatic provider selection.
+  // Treat it exactly like an omitted preference instead of producing an empty
+  // provider list and falsely reporting that no AI is available.
+  if (!requested || requested === "auto") {
+    const configuredOrder = String(process.env.AI_PROVIDER_ORDER || "").split(",").map((x) => x.trim().toLowerCase());
+    const source = configuredOrder.length && configuredOrder.some(Boolean) ? configuredOrder : autoOrder;
+    return Array.from(new Set(source.filter((x): x is AIProvider => autoOrder.includes(x as AIProvider) && Boolean(process.env[envFor(x)]))));
+  }
+
+  if (providers.includes(requested as AIProvider)) return [requested as AIProvider];
+  return [];
+}
+
+function envFor(provider: AIProvider): string {
+  switch (provider) {
+    case "openai": return "OPENAI_API_KEY";
+    case "anthropic": return "ANTHROPIC_API_KEY";
+    case "gemini": return "GEMINI_API_KEY";
+    case "kimi": return "KIMI_API_KEY";
+    case "huggingface": return process.env.HUGGINGFACE_API_KEY ? "HUGGINGFACE_API_KEY" : "HF_TOKEN";
+    case "nvidia": return "NVIDIA_API_KEY";
+    case "groq": return "GROQ_API_KEY";
+    case "cerebras": return "CEREBRAS_API_KEY";
+    case "openrouter": return "OPENROUTER_API_KEY";
+  }
+}
+
 function languageName(language: string) { return language === "so" ? "Somali" : language === "ar" ? "Arabic" : language === "de" ? "German" : "English"; }
 function safeError(provider: string, status: number, body: string) { const clean = body.replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]").replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]"); return `${provider} ${status}: ${clean.slice(0, 300)}`; }
 async function request(url: string, init: RequestInit, timeoutMs = 18000) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs); try { return await fetch(url, { ...init, signal: controller.signal }); } finally { clearTimeout(timer); } }
