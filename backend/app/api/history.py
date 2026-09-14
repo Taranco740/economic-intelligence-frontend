@@ -26,7 +26,9 @@ def _item(r: dict, fallback_title: str = "Analysis") -> HistoryItem:
     return HistoryItem(id=str(r["id"]), project_id=str(r["project_id"]), title=r.get("title") or fallback_title, mode=r.get("mode", "full"), created_at=r["created_at"], dataset_id=str(r["dataset_id"]) if r.get("dataset_id") else None, result=r.get("result") or {})
 
 def _one(table: str, columns: str, field: str, value: str, supabase: Client) -> dict | None:
-    rows = supabase.table(table).select(columns).eq(field, value).limit(1).execute().data or []
+    result = supabase.table(table).select(columns).eq(field, value).limit(1).execute()
+    rows = result.data if result is not None else None
+    rows = rows or []
     return rows[0] if rows else None
 
 @router.get("", response_model=list[HistoryItem])
@@ -74,11 +76,12 @@ def rename_history(history_id: UUID, body: ConversationCreate, user_id: str = De
 
 @router.delete("/{history_id}", status_code=204)
 def delete_history(history_id: UUID, user_id: str = Depends(get_current_user_id), supabase: Client = Depends(get_supabase_client)):
-    row = _one("conversations", "id,project_id", "id", str(history_id), supabase)
-    if not row:
-        raise HTTPException(404, "Analysis not found")
+    result = supabase.table("conversations").select("id,project_id").eq("id", str(history_id)).maybe_single().execute()
+    row = result.data if result is not None else None
+    if row is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
     owner_rows = supabase.table("projects").select("id").eq("id", row["project_id"]).eq("owner_id", user_id).limit(1).execute().data or []
     if not owner_rows:
-        raise HTTPException(404, "Analysis not found")
+        raise HTTPException(status_code=404, detail="Conversation not found")
     supabase.table("conversations").delete().eq("id", str(history_id)).execute()
     return None
