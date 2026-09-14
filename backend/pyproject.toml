@@ -29,3 +29,7 @@ packages = ["app", "api"]
 line-length = 100
 target-version = "py311"
 extend-ignore = ["B008", "BLE001", "I001"]
+[tool.pytest.ini_options]
+markers = [
+  "integration: tests that exercise a real test/staging Supabase project",
+]
