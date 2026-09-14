@@ -1,0 +1,143 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+type Provider = { id: string; name: string; configured: boolean };
+type Message = { role: "user" | "assistant"; text: string; provider?: string; fallback?: boolean };
+type Payload = any;
+
+const names: Record<string, string> = {
+  gemini: "Gemini", kimi: "Kimi", anthropic: "Claude", nvidia: "NVIDIA", groq: "Groq",
+  cerebras: "Cerebras", openrouter: "OpenRouter", huggingface: "Hugging Face", openai: "OpenAI"
+};
+
+export default function WorkspaceFixed() {
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [provider, setProvider] = useState("auto");
+  const [file, setFile] = useState<File | null>(null);
+  const [data, setData] = useState<Payload | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [prompt, setPrompt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/ai/providers", { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Provider check failed (${r.status})`);
+        return r.json();
+      })
+      .then((body) => {
+        if (!alive) return;
+        const list = Array.isArray(body?.providers) ? body.providers.filter((p: Provider) => p.configured) : [];
+        setProviders(list);
+      })
+      .catch(() => { if (alive) setProviders([]); });
+    return () => { alive = false; };
+  }, []);
+
+  const intelligence = data?.intelligence || data;
+  const analysis = intelligence?.analysis;
+  const dataset = data?.dataset || intelligence?.dataset;
+  const columnCount = Array.isArray(analysis?.columns) ? analysis.columns.length : (analysis?.columns ?? (Array.isArray(dataset?.columns) ? dataset.columns.length : dataset?.columns));
+  const relationships = analysis?.relationships || intelligence?.visualization?.relationships || [];
+  const charts = intelligence?.visualization?.charts || [];
+
+  function chooseFile(f: File) {
+    setFile(f); setData(null); setMessages([]); setError("");
+    setPrompt("Analyze this data and tell me what matters.");
+  }
+
+  async function analyze() {
+    if (!file || busy) return;
+    setBusy(true); setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("prompt", prompt.trim() || "Understand this dataset and tell me what matters.");
+      form.append("language", "en");
+      if (provider !== "auto") form.append("provider", provider);
+      const r = await fetch("/api/analyst", { method: "POST", body: form });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.detail || `Analysis failed (${r.status}).`);
+      setData(body);
+      setMessages([
+        { role: "user", text: prompt.trim() || "Understand this data and tell me what matters." },
+        { role: "assistant", text: body.story || body.insights || "Analysis completed.", provider: body.ai_provider, fallback: body.ai_fallback_used }
+      ]);
+      setPrompt("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gamur could not analyze this file.");
+    } finally { setBusy(false); }
+  }
+
+  async function ask() {
+    const q = prompt.trim();
+    if (!q || !data || busy) return;
+    setMessages((m) => [...m, { role: "user", text: q }]);
+    setPrompt(""); setBusy(true); setError("");
+    try {
+      const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: q, context: JSON.stringify({ dataset, intelligence }), language: "en", provider: provider === "auto" ? undefined : provider }) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body?.detail || `Request failed (${r.status}).`);
+      setMessages((m) => [...m, { role: "assistant", text: body.answer || "No answer was returned.", provider: body.ai_provider, fallback: body.ai_fallback_used }]);
+    } catch (e) {
+      setMessages((m) => [...m, { role: "assistant", text: e instanceof Error ? e.message : "Assistant unavailable." }]);
+    } finally { setBusy(false); }
+  }
+
+  function submit() { if (data) void ask(); else void analyze(); }
+  function reset() { setFile(null); setData(null); setMessages([]); setPrompt(""); setError(""); if (inputRef.current) inputRef.current.value = ""; }
+
+  return <div className="gw">
+    <aside className="side">
+      <button className="new" onClick={reset}>＋ New conversation</button>
+      <div className="sideTitle">GAMUR</div>
+      <p className="sideCopy">Evidence first · AI second</p>
+      <div className="sideStatus"><span className="dot" />{providers.length ? `${providers.length} AI providers ready` : "Checking AI providers…"}</div>
+    </aside>
+    <main className="main">
+      <header className="bar">
+        <a className="brand" href="/">G<span>amur</span></a>
+        <div className="title"><b>Data workspace</b><small>{file ? file.name : "Upload a dataset and tell Gamur what you need."}</small></div>
+        <label className="ai">AI<select value={provider} onChange={(e) => setProvider(e.target.value)}><option value="auto">Auto · best available</option>{providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      </header>
+
+      <section className="content">
+        {!data ? <div className="welcome">
+          <span className="eyebrow">GAMUR · AI DATA WORKSPACE</span>
+          <h1>Bring your data.<br /><i>Choose the intelligence.</i></h1>
+          <p>Upload CSV or Excel, choose what you want, and Gamur will compute the evidence before an AI explains it.</p>
+          <div className="actions">
+            <button onClick={() => inputRef.current?.click()}><strong>＋</strong><b>{file ? "Change dataset" : "Attach your data"}</b><small>CSV, XLSX or XLS · up to 25 MB</small></button>
+            <button disabled={!file} onClick={() => { setPrompt("Analyze this data and give me a full report."); }}><strong>▥</strong><b>Full analysis</b><small>Find what matters</small></button>
+            <button disabled={!file} onClick={() => setPrompt("Clean this data and explain the quality issues." )}><strong>✓</strong><b>Clean data</b><small>Prepare reliable data</small></button>
+            <button disabled={!file} onClick={() => setPrompt("Make a useful chart from this data and explain what it shows.")}><strong>▤</strong><b>Make a chart</b><small>Visualize evidence</small></button>
+          </div>
+          {file && <div className="attachment"><span>✓</span><div><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(2)} MB · ready</small></div><button onClick={reset}>Remove</button></div>}
+          <div className="providers"><b>Configured AI</b>{providers.length ? providers.map((p) => <span key={p.id}>{p.name}</span>) : <em>No provider keys detected yet</em>}</div>
+          {file && <button className="primary" onClick={submit} disabled={busy}>{busy ? "Analyzing…" : "Analyze dataset →"}</button>}
+        </div> : <div className="results">
+          <div className="dataset"><div><span className="eyebrow">UNDERSTOOD DATASET</span><h2>{file?.name}</h2><p>Verified dataset context</p></div><div className="stats"><span><b>{analysis?.rows ?? dataset?.rows ?? "—"}</b> rows</span><span><b>{columnCount ?? "—"}</b> columns</span><span><b>{dataset?.quality_score ?? "—"}</b> quality</span></div></div>
+          <div className="messages">{messages.map((m, i) => <article className={m.role} key={i}><header><b>{m.role === "user" ? "You" : "Gamur"}</b>{m.provider && <small>{names[m.provider] || m.provider}{m.fallback ? " · fallback used" : ""}</small>}</header><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown></article>)}</div>
+          {(analysis || relationships.length || charts.length) && <section className="evidence"><span className="eyebrow">VERIFIED EVIDENCE</span><h2>What the data says</h2><div className="kpis"><div><small>Observations</small><b>{analysis?.rows ?? "—"}</b></div><div><small>Numeric fields</small><b>{analysis?.numeric_columns?.length ?? 0}</b></div><div><small>Questions</small><b>{intelligence?.questions?.length ?? 0}</b></div><div><small>Outlier flags</small><b>{(analysis?.outliers || []).reduce((n: number, x: any) => n + (x.count || 0), 0)}</b></div></div>{relationships.slice(0, 4).map((r: any, i: number) => <div className="finding" key={i}><b>{r.x} ↔ {r.y}</b><span>r = {Number(r.r).toFixed(2)}</span></div>)}{charts.slice(0, 2).map((c: any, i: number) => <div className="chart" key={i}><b>{c.title || "Data chart"}</b>{(c.data || []).slice(0, 8).map((row: any, j: number) => <div className="row" key={j}><span>{String(row[c.xKey] ?? "").slice(0, 20)}</span><span>{String(row[c.yKey] ?? "")}</span></div>)}</div>)}</section>}
+        </div>}
+      </section>
+
+      {error && <div className="error">{error}</div>}
+      <footer className="composer">
+        <input ref={inputRef} hidden type="file" accept=".csv,.xlsx,.xls" onChange={(e) => { const f = e.target.files?.[0]; if (f) chooseFile(f); }} />
+        <button onClick={() => inputRef.current?.click()} aria-label="Attach file">＋</button>
+        <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} placeholder={data ? "Ask Gamur anything about this data…" : file ? "Describe what you want, then press Analyze…" : "Attach data, then tell Gamur what you need…"} />
+        <button className="send" disabled={busy || (!file && !data) || !prompt.trim()} onClick={submit}>{busy ? "…" : "↑"}</button>
+      </footer>
+    </main>
+    <style jsx>{`
+      *{box-sizing:border-box}.gw{min-height:100vh;display:grid;grid-template-columns:240px 1fr;background:#f7f8fa;color:#17202a;font-family:Inter,system-ui,sans-serif}.side{background:#eef1f3;border-right:1px solid #dce2e6;padding:18px}.new{width:100%;border:1px solid #cfd7dd;background:white;border-radius:10px;padding:11px 12px;text-align:left;font-weight:700;cursor:pointer}.sideTitle{margin-top:32px;font-size:12px;letter-spacing:.16em;color:#64707b}.sideCopy{font-size:13px;color:#71808c}.sideStatus{margin-top:22px;border-top:1px solid #d8dee3;padding-top:16px;font-size:12px;color:#66737d}.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3d8a5a;margin-right:7px}.main{min-width:0;display:flex;flex-direction:column;min-height:100vh}.bar{height:72px;border-bottom:1px solid #dfe4e8;background:white;display:flex;align-items:center;padding:0 28px;gap:22px}.brand{font-size:21px;font-weight:800;color:#142a4a;text-decoration:none}.brand span{font-weight:700}.title{display:flex;flex-direction:column;flex:1}.title b{font-size:15px}.title small{color:#74808b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ai{display:flex;align-items:center;gap:8px;font-size:12px;color:#6d7881}.ai select{border:1px solid #d4dbe0;border-radius:8px;padding:9px 10px;background:white;color:#17202a}.content{flex:1;overflow:auto}.welcome{max-width:980px;margin:0 auto;padding:72px 34px 120px}.eyebrow{font-size:11px;letter-spacing:.15em;color:#6b7882;font-weight:800}.welcome h1{font-size:48px;line-height:1.05;margin:14px 0;color:#172b47;letter-spacing:-.04em}.welcome h1 i{font-family:Georgia,serif;font-weight:400;color:#42679c}.welcome>p{max-width:680px;font-size:16px;line-height:1.6;color:#65717b}.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:30px}.actions button{min-height:125px;text-align:left;border:1px solid #d9e0e4;background:white;border-radius:13px;padding:17px;cursor:pointer;box-shadow:0 2px 8px #172b4708}.actions button:disabled{opacity:.5;cursor:not-allowed}.actions strong{display:block;font-size:21px;color:#315d99;margin-bottom:17px}.actions b{display:block;font-size:14px}.actions small{display:block;margin-top:5px;color:#7a858d;line-height:1.35}.providers{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:24px;font-size:12px;color:#65717b}.providers span{border:1px solid #d6dee3;background:#fff;border-radius:999px;padding:6px 9px;color:#314b67}.providers em{font-style:normal;color:#8a949b}.attachment{margin-top:18px;padding:12px 14px;border:1px solid #cddbe6;background:#fff;border-radius:10px;display:flex;align-items:center;gap:10px}.attachment>span{font-weight:800;color:#2d7a4d}.attachment div{flex:1}.attachment b,.attachment small{display:block}.attachment small{color:#7a858d;margin-top:2px}.attachment button{border:0;background:none;color:#6c7882;cursor:pointer}.primary{margin-top:20px;border:0;border-radius:10px;background:#17365f;color:white;padding:12px 18px;font-weight:800;cursor:pointer}.primary:disabled{opacity:.6}.results{max-width:1000px;margin:0 auto;padding:30px 34px 120px}.dataset{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #dfe4e8;padding-bottom:20px}.dataset h2{margin:6px 0 2px;font-size:24px}.dataset p{margin:0;color:#7a858d}.stats{display:flex;gap:24px;align-items:end}.stats span{font-size:12px;color:#74808b}.stats b{font-size:20px;color:#172b47;margin-right:4px}.messages{margin-top:28px}.messages article{padding:18px 20px;margin-bottom:14px;border-radius:12px;border:1px solid #e0e5e8;background:white}.messages article.user{background:#f0f4f7}.messages article header{display:flex;gap:10px;align-items:center;margin-bottom:8px}.messages article header small{color:#75818a}.messages article p{line-height:1.6}.messages article table{width:100%;border-collapse:collapse}.messages article th,.messages article td{border:1px solid #dfe4e8;padding:7px;text-align:left}.evidence{margin-top:24px;padding:22px;border:1px solid #dfe4e8;border-radius:13px;background:#fff}.evidence h2{margin:6px 0 18px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.kpis div{background:#f4f6f7;border-radius:9px;padding:13px}.kpis small,.kpis b{display:block}.kpis small{color:#7a858d;font-size:11px}.kpis b{font-size:20px;margin-top:5px}.finding{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #edf0f2}.chart{margin-top:18px;padding-top:15px;border-top:1px solid #edf0f2}.row{display:flex;justify-content:space-between;padding:6px 0;font-size:12px}.composer{position:sticky;bottom:0;display:flex;gap:8px;padding:14px 24px;background:#ffffffee;border-top:1px solid #dfe4e8;backdrop-filter:blur(8px)}.composer>button{width:42px;border:1px solid #d2d9de;background:white;border-radius:9px;font-size:20px;cursor:pointer}.composer textarea{flex:1;min-height:42px;max-height:130px;resize:none;border:1px solid #d2d9de;border-radius:9px;padding:11px 12px;font:inherit;outline:none}.composer textarea:focus{border-color:#6f8fb4}.composer .send{background:#17365f;color:white}.composer .send:disabled{opacity:.45;cursor:not-allowed}.error{position:fixed;right:22px;bottom:84px;max-width:520px;background:#fff1f1;border:1px solid #e5b8b8;color:#8b2f2f;border-radius:10px;padding:12px 15px;box-shadow:0 8px 30px #0001;z-index:20}@media(max-width:850px){.gw{grid-template-columns:1fr}.side{display:none}.actions{grid-template-columns:1fr 1fr}.welcome{padding:40px 20px}.welcome h1{font-size:38px}.bar{padding:0 16px}.ai{display:none}.dataset{display:block}.stats{margin-top:15px;flex-wrap:wrap}.kpis{grid-template-columns:1fr 1fr}}
+    `}</style>
+  </div>;
+}
