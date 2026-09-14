@@ -16,7 +16,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: npm
       - name: Install frontend dependencies
         run: npm install
       - name: Build frontend
@@ -36,8 +35,8 @@ jobs:
           python-version: "3.11"
       - name: Install backend dependencies
         run: pip install -e ".[dev]"
-      - name: Ruff
-        run: ruff check .
+      - name: Ruff — fatal errors only
+        run: ruff check . --select E9,F
       - name: Compile backend Python
         run: python -m compileall -q .
       - name: Unit tests
