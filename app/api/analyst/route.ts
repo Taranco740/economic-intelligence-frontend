@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { generateAIText } from "../../../lib/ai-provider";
 import { buildIntelligence, type EngineRow } from "../../../lib/intelligence/engine";
+import { buildAnalysisContext, fallbackAnalysisStory } from "../../../lib/intelligence/analysis-context";
 import type { ColumnProfile } from "../../../lib/intelligence/profiling";
 
 export const runtime = "nodejs";
@@ -36,9 +37,15 @@ export async function POST(request: Request) {
     const column_profiles = profileRows(rows, headers);
     const quality_score = qualityScore(rows, column_profiles);
     const intelligence = buildIntelligence({ filename: file.name, sheet: sheetName, rows: rows.length, columns: headers.length, quality_score, column_profiles }, prompt, rows, language);
+    const analysis_context = buildAnalysisContext(rows, column_profiles);
 
-    const ai = await generateAIText(language, prompt, { intelligence }, provider);
-    const story = ai.text?.trim() || intelligence.story.summary;
+    const ai = await generateAIText(language, prompt, {
+      task: "data_analysis",
+      instruction: "Use the computed analytical evidence below, not just dataset metadata. Answer the specific user question. Do not repeat row count, column count, or quality score because those are already visible in the dataset header. For a broad 'what matters' analysis, lead with a meaningful mean-vs-median gap, then strong/moderate correlations and their practical implication, then outlier rates above 2%, then the biggest categorical/status imbalance. For 'what is this data about', describe the subject matter using project/task/category clues and date range instead of statistics. Distinguish these questions. Never invent figures; all numbers must come from the supplied computed context.",
+      dataset_metadata: intelligence.dataset,
+      computed_analysis: analysis_context,
+    }, provider);
+    const story = ai.text?.trim() || fallbackAnalysisStory(analysis_context, prompt);
     intelligence.ai = { provider: ai.provider, fallback_used: ai.fallback, failures: ai.failures };
     intelligence.story.summary = story;
 
@@ -48,6 +55,7 @@ export async function POST(request: Request) {
       requested: intelligence.request.intent,
       dataset: { ...intelligence.dataset, columns: column_profiles },
       intelligence,
+      analysis_context,
       story,
       insights: story,
       ai_provider: ai.provider,
