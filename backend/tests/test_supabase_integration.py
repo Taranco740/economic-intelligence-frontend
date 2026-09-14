@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 from supabase import create_client
 
-from app.api.deps import get_current_user_id, get_supabase_client
+from app.api.deps import get_current_user_id
 from app.main import app
 
 
@@ -22,7 +22,6 @@ def test_create_project_and_delete_conversation_against_staging_supabase():
         )
 
     client = create_client(supabase_url, service_role_key)
-    app.dependency_overrides[get_supabase_client] = lambda: client
     app.dependency_overrides[get_current_user_id] = lambda: test_user_id
     http = TestClient(app)
 
