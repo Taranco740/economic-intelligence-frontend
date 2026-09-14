@@ -10,15 +10,10 @@ function order(preferred?: string): AIProvider[] {
     const source: string[] = configuredOrder.some(Boolean) ? configuredOrder : autoOrder;
     return Array.from(new Set(source.filter((x): x is AIProvider => isAutoProvider(x) && Boolean(process.env[envFor(x)]))));
   }
-
   if (providers.includes(requested as AIProvider)) return [requested as AIProvider];
   return [];
 }
-
-function isAutoProvider(value: string): value is AIProvider {
-  return (autoOrder as string[]).includes(value);
-}
-
+function isAutoProvider(value: string): value is AIProvider { return (autoOrder as string[]).includes(value); }
 function envFor(provider: AIProvider): string {
   switch (provider) {
     case "openai": return "OPENAI_API_KEY";
@@ -32,13 +27,12 @@ function envFor(provider: AIProvider): string {
     case "openrouter": return "OPENROUTER_API_KEY";
   }
 }
-
 function languageName(language: string) { return language === "so" ? "Somali" : language === "ar" ? "Arabic" : language === "de" ? "German" : "English"; }
 function safeError(provider: string, status: number, body: string) { const clean = body.replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]").replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]"); return `${provider} ${status}: ${clean.slice(0, 300)}`; }
 async function request(url: string, init: RequestInit, timeoutMs = 18000) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs); try { return await fetch(url, { ...init, signal: controller.signal }); } finally { clearTimeout(timer); } }
 
 export async function generateAIText(language: string, prompt: string, payload: unknown, preferredProvider?: string) {
-  const instructions = `You are Gamur, a Somali-owned AI data analyst. Answer in ${languageName(language)}. Never call yourself ChatGPT. Complete only this requested task: ${prompt}. Use only supplied evidence. Never invent or change numbers. If evidence is insufficient, say so.`;
+  const instructions = `You are Gamur, a Somali-owned AI data analyst. Answer in ${languageName(language)}. Never call yourself ChatGPT. Complete only this requested task: ${prompt}. Use only supplied evidence. Never invent or change numbers. If evidence is insufficient, say so. When computed analytical evidence is supplied, prioritize it over dataset metadata. Never merely restate rows, columns, file name, or quality score unless the user explicitly asks for those metadata. For analysis questions, explain what the computed statistics mean, not just what they are. If there is a meaningful mean-vs-median gap, lead with it. Call out strong or moderate correlations and their practical implication. Flag any key-column outlier rate above 2%. Note the biggest categorical/status imbalance. For questions about what the data is about, describe the subject matter, key entities/categories, and date range instead of giving a generic metadata summary.`;
   const input = JSON.stringify(payload); const failures: string[] = [];
   for (const provider of order(preferredProvider)) {
     try {
